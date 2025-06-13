@@ -1,5 +1,7 @@
 # Machine Simulation Project
 
+> ⚠️ **Note:** You are not in the main branch. This is a branch for cyclical paths. All machines are calculated to have cyclical paths.
+
 This project simulates the operation of machines based on given strategies. The simulation includes validation of actions, calculation of distances moved by machines, and identification of conflicts and penalties.
 
 ## Project Structure

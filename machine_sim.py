@@ -86,6 +86,7 @@ def stack_validator(df, print_diag=False):
 def naive_distance_calculator(df):
     """
     Calculate the total distance moved by the machine based on the strategy, without considering parrallel machines.
+    All machines are moved to (0, 0) before each new "pick-place" cycle and at the end of the strategy.
 
     Parameters:
     df (DataFrame): DataFrame containing the strategy
@@ -96,19 +97,29 @@ def naive_distance_calculator(df):
     distance = 0
     last_x = 0
     last_y = 0
+    last_action = None
 
     for index, row in df.iterrows():
         # Access individual elements in the row
         x = row['X']
         y = row['Y']
-        component = row['Component']
         action = row['Action']
 
+        if action == 'pick' and last_action == 'place':
+            # If it is a new 'pick-place' cycle, move the machine to (0, 0) first
+            distance += ((0 - last_x)**2 + (0 - last_y)**2)**0.5
+            last_x = 0
+            last_y = 0
+            
         # Calculate the Euclidian distance moved
-        if index > 0:
-            distance += ((x - last_x)**2 + (y - last_y)**2)**0.5
+        distance += ((x - last_x)**2 + (y - last_y)**2)**0.5
+
         last_x = x
         last_y = y
+        last_action = action
+
+    # Move the machine back to (0, 0) after the last action
+    distance += ((0 - last_x)**2 + (0 - last_y)**2)**0.5
 
     return distance
 
@@ -122,7 +133,7 @@ def read_equipment_file(equipment_file, print_diag=False):
     # Iterate over each row using iterrows()
     for index, row in df.iterrows():
         # Get the equipment name (first column)
-        equipment = row[0]
+        equipment = row.iloc[0]
         
         # Get the components (subsequent columns)
         components = row[1:].dropna().tolist()
@@ -279,7 +290,11 @@ def enforce_column_format(df):
     
     # Ensure the fourth column is lowercase words
     df.iloc[:, 3] = df.iloc[:, 3].astype(str).str.lower().replace('[^a-z]+', np.nan, regex=True)
-    
+
+    # Remove unnecessary Actions, if they exist
+    df = df[df['Action'].isin(['pick', 'place'])]
+    df = df.reset_index(drop=True)
+
     return df
 
 def pcb_validator(df_A, df_B, df_C, df_pcb):
@@ -358,7 +373,7 @@ def main(strategy_folder):
     component_to_equipments = assign_components_to_equipment(equipment_components)
     component_support_count = {component: len(equipments) for component, equipments in component_to_equipments.items()}
 
-    # print(component_support_count)
+    #print(component_support_count)
     states_A = get_before_place_states(df_A)
     states_B = get_before_place_states(df_B)
     states_C = get_before_place_states(df_C)
@@ -452,7 +467,7 @@ def main(strategy_folder):
     total_intra_machine_conflicts_penalty = intra_machine_conflicts * per_round_avg_machine_distance * 2
     print(f"Total intra-machine conflicts penalty: {round(total_intra_machine_conflicts_penalty, 2)}")
 
-    # *2 for making other heads wait
+    # *2 for making other two heads wait
     total_inter_machine_conflicts_penalty = inter_machine_conflicts * per_round_avg_machine_distance * 2
     print(f"Total inter-machine conflicts penalty: {round(total_inter_machine_conflicts_penalty, 2)}")
 
@@ -468,7 +483,7 @@ def main(strategy_folder):
 
 if __name__ == "__main__":
     current_file_path = os.path.abspath(__file__)
-    solution_path = os.path.dirname(current_file_path)+"/solution"
+    solution_path = os.path.dirname(current_file_path)+"/test"
 
     parser = argparse.ArgumentParser(description="Machine Simulation.")
     parser.add_argument('--strategy_folder', type=str, required=False, help='Path to the strategy csv file', default=solution_path)
